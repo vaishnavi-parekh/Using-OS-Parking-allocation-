@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Parking Lot Allocation Simulator</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+  --bg:#e9e7e1;--panel:#fbfaf7;--ink:#1f2328;--muted:#5d636b;--line:#cfcdc5;
+  --paint:#f2b705;--paint-ink:#1f2328;--waste:#d64545;--wastebg:#f3d3d0;--ok:#1f7a4d;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#1b1e23;--panel:#262a31;--ink:#ecebe6;--muted:#a3a9b1;--line:#3c424b;
+    --wastebg:#4a2a2a;--ok:#5cc98f;--waste:#ff7a7a;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#1b1e23;--panel:#262a31;--ink:#ecebe6;--muted:#a3a9b1;--line:#3c424b;
+  --wastebg:#4a2a2a;--ok:#5cc98f;--waste:#ff7a7a;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Barlow,system-ui,sans-serif}
+.wrap{max-width:1040px;margin:0 auto;padding:20px 16px 48px}
+header{border-bottom:6px dashed var(--paint);padding-bottom:14px;margin-bottom:20px}
+h1{font:700 clamp(30px,6vw,48px)/1.05 "Barlow Condensed",Impact,sans-serif;margin:0 0 6px}
+h2{font:700 24px/1.1 "Barlow Condensed",Impact,sans-serif;margin:0 0 10px}
+header p{margin:0;color:var(--muted);max-width:62ch}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px;margin-bottom:18px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:640px){.grid{grid-template-columns:1fr}}
+label{display:block;font-weight:600;margin-bottom:4px}
+.hint{font-weight:400;color:var(--muted);font-size:14px}
+input[type=text],select{width:100%;padding:10px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink);font:inherit}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid var(--paint);outline-offset:2px}
+.row{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;align-items:end}
+.row>div{flex:1 1 200px}
+button{font:600 16px Barlow,sans-serif;padding:10px 18px;border-radius:4px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+button.go{background:var(--paint);color:var(--paint-ink);border-color:var(--paint);font-size:18px}
+#err{color:var(--waste);font-weight:600;margin-top:10px;min-height:1.2em}
+.lot{margin-bottom:22px}
+.lot h3{font:700 22px "Barlow Condensed",Impact,sans-serif;margin:0 0 4px}
+.lot .desc{color:var(--muted);font-size:14px;margin:0 0 10px}
+.slot{display:flex;align-items:center;gap:10px;margin:6px 0}
+.slot .nm{width:92px;flex:none;font-size:14px;font-weight:600}
+.slot .nm small{display:block;color:var(--muted);font-weight:400}
+.track{flex:1;min-width:0}
+.box{display:flex;height:34px;border:2px solid var(--ink);border-radius:3px;overflow:hidden;background:transparent}
+.box.empty{border-style:dashed;border-color:var(--muted)}
+.car{display:flex;align-items:center;justify-content:center;color:#111;font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden}
+.waste{flex:1;background:repeating-linear-gradient(45deg,var(--wastebg) 0 6px,transparent 6px 12px);display:flex;align-items:center;justify-content:center;color:var(--waste);font-size:13px;font-weight:600;overflow:hidden;white-space:nowrap}
+.reject{margin-top:10px;padding:8px 10px;border:1px solid var(--waste);border-radius:4px;color:var(--waste);font-weight:600;font-size:15px}
+.allok{margin-top:10px;color:var(--ok);font-weight:600;font-size:15px}
+details{margin-top:10px}
+summary{cursor:pointer;font-weight:600}
+ol.log{margin:8px 0 0;padding-left:22px;font-size:14px;color:var(--muted)}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:520px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+th{font-weight:600;color:var(--muted);font-size:14px}
+tr.win td{font-weight:700}
+.bars .b{display:flex;align-items:center;gap:10px;margin:6px 0}
+.bars .b span.l{width:86px;flex:none;font-weight:600;font-size:14px}
+.bars .fill{height:22px;background:var(--waste);border-radius:2px;min-width:2px}
+.bars .fill.g{background:var(--ok)}
+.bars .v{font-size:14px;color:var(--muted)}
+#verdict{font-weight:600;margin:12px 0 0}
+#results[hidden]{display:none}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+@media(prefers-reduced-motion:no-preference){.fill,.car{transition:width .4s}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Parking Lot Allocation Simulator</h1>
+  <p>Cars are parked into slots the way an operating system places processes into memory. Enter slot sizes and car sizes, then compare First Fit, Best Fit and Worst Fit.</p>
+</header>
+
+<section class="panel" aria-label="Input">
+  <div class="grid">
+    <div>
+      <label for="slots">Parking slot sizes <span class="hint">(sq ft, separated by commas)</span></label>
+      <input id="slots" type="text" value="100, 500, 200, 300, 600" inputmode="numeric">
+    </div>
+    <div>
+      <label for="cars">Car sizes <span class="hint">(sq ft, in arrival order)</span></label>
+      <input id="cars" type="text" value="212, 417, 112, 426" inputmode="numeric">
+    </div>
+  </div>
+  <div class="row">
+    <div>
+      <label for="alg">Algorithm</label>
+      <select id="alg">
+        <option value="all">Compare all three</option>
+        <option value="first">First Fit</option>
+        <option value="best">Best Fit</option>
+        <option value="worst">Worst Fit</option>
+      </select>
+    </div>
+    <button class="go" id="run" type="button">Park the cars</button>
+  </div>
+  <div class="tools">
+    <button id="sample" type="button">Load sample data</button>
+    <button id="rand" type="button">Random data</button>
+  </div>
+  <div id="err" role="alert"></div>
+</section>
+
+<div id="results" hidden>
+  <section class="panel" aria-label="Parking lot">
+    <h2>Parking lot</h2>
+    <p class="hint" style="margin-top:0">Coloured blocks are parked cars. Red striped areas are wasted space inside a slot (internal fragmentation). Dashed slots stay empty.</p>
+    <div id="lots"></div>
+  </section>
+
+  <section class="panel" aria-label="Result table">
+    <h2>Results</h2>
+    <div class="scroll"><table id="summary"></table></div>
+    <p id="verdict"></p>
+    <div class="bars" id="bars" style="margin-top:14px"></div>
+  </section>
+
+  <section class="panel" aria-label="Assignment details">
+    <h2>Who parked where</h2>
+    <div class="scroll"><table id="detail"></table></div>
+  </section>
+</div>
+</div>
+
+<script>
+var COLORS=["#f2b705","#6fb7e9","#8fd19e","#f09a7a","#c3a6e8","#f5d76e","#7fd6d0","#e8a0c0"];
+var NAMES={first:"First Fit",best:"Best Fit",worst:"Worst Fit"};
+var DESC={
+  first:"Takes the first free slot (from the entrance) that is big enough.",
+  best:"Takes the smallest free slot that is still big enough, so the least space is left over.",
+  worst:"Takes the largest free slot, hoping the leftover space stays useful."
+};
+function $(id){return document.getElementById(id)}
+
+function parse(str,label){
+  var parts=str.split(/[,\s]+/).filter(Boolean);
+  if(!parts.length) throw new Error("Enter at least one value for "+label+".");
+  return parts.map(function(p){
+    var n=Number(p);
+    if(!isFinite(n)||n<=0||Math.floor(n)!==n) throw new Error("“"+p+"” in "+label+" must be a whole number greater than 0.");
+    return n;
+  });
+}
+
+function simulate(alg,slots,cars){
+  var used=slots.map(function(){return -1});
+  var log=[],assign=[];
+  cars.forEach(function(c,i){
+    var opts=[];
+    slots.forEach(function(s,j){ if(used[j]<0&&s>=c) opts.push(j); });
+    var pick=-1;
+    if(opts.length){
+      pick=opts[0];
+      opts.forEach(function(j){
+        if(alg==="best"&&slots[j]<slots[pick]) pick=j;
+        if(alg==="worst"&&slots[j]>slots[pick]) pick=j;
+      });
+    }
+    var tag="Car "+(i+1)+" ("+c+")";
+    if(pick<0){
+      log.push(tag+": no free slot is big enough, so it cannot park.");
+      assign.push(-1);
+    }else{
+      used[pick]=i;
+      var list=opts.map(function(j){return "Slot "+(j+1)+" ("+slots[j]+")"}).join(", ");
+      log.push(tag+": slots that fit are "+list+". "+NAMES[alg]+" picks Slot "+(pick+1)+", wasting "+(slots[pick]-c)+".");
+      assign.push(pick);
+    }
+  });
+  var parked=0,waste=0,carSum=0,total=0;
+  slots.forEach(function(s){total+=s});
+  cars.forEach(function(c,i){ if(assign[i]>=0){parked++;waste+=slots[assign[i]]-c;carSum+=c;} });
+  return {alg:alg,used:used,assign:assign,log:log,parked:parked,rejected:cars.length-parked,waste:waste,util:Math.round(carSum/total*100)};
+}
+
+function lotHTML(r,slots,cars){
+  var max=Math.max.apply(null,slots);
+  var h='<div class="lot"><h3>'+NAMES[r.alg]+'</h3><p class="desc">'+DESC[r.alg]+'</p>';
+  slots.forEach(function(s,j){
+    var ci=r.used[j];
+    var w=(s/max*100).toFixed(1);
+    h+='<div class="slot"><div class="nm">Slot '+(j+1)+'<small>'+s+' sq ft</small></div><div class="track"><div class="box'+(ci<0?' empty':'')+'" style="width:'+w+'%">';
+    if(ci>=0){
+      var c=cars[ci],pc=(c/s*100).toFixed(1);
+      h+='<div class="car" style="width:'+pc+'%;background:'+COLORS[ci%COLORS.length]+'">C'+(ci+1)+'</div>';
+      if(s-c>0) h+='<div class="waste">'+(s-c)+'</div>';
+    }
+    h+='</div></div></div>';
+  });
+  var rej=[];
+  r.assign.forEach(function(a,i){ if(a<0) rej.push("Car "+(i+1)+" ("+cars[i]+")"); });
+  h+= rej.length ? '<div class="reject">Not parked: '+rej.join(", ")+'</div>' : '<div class="allok">All cars parked.</div>';
+  h+='<details><summary>Step-by-step log</summary><ol class="log">'+r.log.map(function(l){return "<li>"+l+"</li>"}).join("")+'</ol></details></div>';
+  return h;
+}
+
+function render(){
+  var err=$("err");err.textContent="";
+  var slots,cars;
+  try{
+    slots=parse($("slots").value,"slot sizes");
+    cars=parse($("cars").value,"car sizes");
+    if(slots.length>12||cars.length>12) throw new Error("Use at most 12 slots and 12 cars so the lot stays readable.");
+  }catch(e){err.textContent=e.message;return;}
+
+  var sel=$("alg").value;
+  var algs=sel==="all"?["first","best","worst"]:[sel];
+  var res=algs.map(function(a){return simulate(a,slots,cars)});
+
+  $("lots").innerHTML=res.map(function(r){return lotHTML(r,slots,cars)}).join("");
+
+  // pick winner: most cars parked, then least waste
+  var win=res.slice().sort(function(a,b){return b.parked-a.parked||a.waste-b.waste})[0];
+  var s='<tr><th>Algorithm</th><th>Cars parked</th><th>Not parked</th><th>Wasted space</th><th>Space used</th></tr>';
+  res.forEach(function(r){
+    s+='<tr'+(res.length>1&&r===win?' class="win"':'')+'><td>'+NAMES[r.alg]+'</td><td>'+r.parked+' of '+cars.length+'</td><td>'+r.rejected+'</td><td>'+r.waste+' sq ft</td><td>'+r.util+'%</td></tr>';
+  });
+  $("summary").innerHTML=s;
+
+  var v=$("verdict");
+  if(res.length>1){
+    var tied=res.filter(function(r){return r.parked===win.parked&&r.waste===win.waste});
+    v.textContent=tied.length===res.length
+      ? "All three algorithms give the same result for this input."
+      : tied.map(function(r){return NAMES[r.alg]}).join(" and ")+" did best here: "+win.parked+" cars parked with "+win.waste+" sq ft wasted.";
+  }else v.textContent="";
+
+  var maxW=Math.max.apply(null,res.map(function(r){return r.waste}))||1;
+  var maxP=cars.length;
+  var b="";
+  if(res.length>1){
+    b+='<h2 style="font-size:20px">Wasted space</h2>';
+    res.forEach(function(r){b+='<div class="b"><span class="l">'+NAMES[r.alg]+'</span><div class="fill" style="width:'+(r.waste/maxW*60)+'%"></div><span class="v">'+r.waste+'</span></div>';});
+    b+='<h2 style="font-size:20px;margin-top:14px">Cars parked</h2>';
+    res.forEach(function(r){b+='<div class="b"><span class="l">'+NAMES[r.alg]+'</span><div class="fill g" style="width:'+(r.parked/maxP*60)+'%"></div><span class="v">'+r.parked+'</span></div>';});
+  }
+  $("bars").innerHTML=b;
+
+  var d='<tr><th>Car</th><th>Size</th>'+res.map(function(r){return '<th>'+NAMES[r.alg]+'</th>'}).join("")+'</tr>';
+  cars.forEach(function(c,i){
+    d+='<tr><td>Car '+(i+1)+'</td><td>'+c+'</td>';
+    res.forEach(function(r){
+      var a=r.assign[i];
+      d+='<td>'+(a<0?'<span style="color:var(--waste);font-weight:600">Not parked</span>':'Slot '+(a+1)+' ('+slots[a]+'), waste '+(slots[a]-c))+'</td>';
+    });
+    d+='</tr>';
+  });
+  $("detail").innerHTML=d;
+
+  $("results").hidden=false;
+  $("results").scrollIntoView({behavior:"smooth",block:"start"});
+}
+
+$("run").addEventListener("click",render);
+$("sample").addEventListener("click",function(){
+  $("slots").value="100, 500, 200, 300, 600";
+  $("cars").value="212, 417, 112, 426";
+});
+$("rand").addEventListener("click",function(){
+  function r(n,lo,hi){var a=[];for(var i=0;i<n;i++)a.push(lo+Math.floor(Math.random()*(hi-lo+1)));return a}
+  $("slots").value=r(6,100,700).join(", ");
+  $("cars").value=r(5,80,500).join(", ");
+});
+["slots","cars"].forEach(function(id){
+  $(id).addEventListener("keydown",function(e){if(e.key==="Enter")render();});
+});
+</script>
+</body>
+</html>
